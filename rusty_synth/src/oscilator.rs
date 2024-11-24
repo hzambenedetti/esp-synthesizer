@@ -38,8 +38,43 @@ impl Oscilator{
         samples: usize, 
         write_over: bool
     ){
-        todo!();
+        let wave_func: fn(usize) -> i16 = match self.wave_form{
+            WaveForm::Sine => sin_i16,
+            WaveForm::Square => square_i16,
+            WaveForm::SawTooth => saw_tooth_i16,
+            WaveForm::Triangle => triangle_i16,
+        };
+        
+        if write_over == true{
+            for i in 0..samples{
+                buffer[i] = wave_func(self.phase as usize);
+                self.inc_phase();
+            }
+        }else{
+            for i in 0..samples{
+                buffer[i] += wave_func(self.phase as usize);
+                self.inc_phase();
+            }
+        }
     }
 
-
 }
+
+fn sin_i16(x: usize) -> i16{
+    todo!();
+}
+
+fn square_i16(x: usize) -> i16{
+    todo!();
+}
+
+fn saw_tooth_i16(x: usize) -> i16{
+    todo!();
+}
+
+fn triangle_i16(x: usize) -> i16{
+    todo!();
+}
+
+
+
