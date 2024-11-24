@@ -1,31 +1,3 @@
-//!
-//! Without an additional I2S sink device you can inspect the MCLK, BCLK, WS
-//!  and DOUT with a logic analyzer.
-//!
-//! You can also connect e.g. a PCM510x to hear an annoying loud sine tone (full
-//! scale), so turn down the volume before running this example.
-//!
-
-//! - BCLK => GPIO2
-//! - WS   => GPIO4
-//! - DOUT => GPIO5
-//!
-//! PCM510x:
-//! | Pin   | Connected to    |
-//! |-------|-----------------|
-//! | BCK   | GPIO0           |
-//! | DIN   | GPIO2           |
-//! | LRCK  | GPIO1           |
-//! | SCK   | Gnd             |
-//! | GND   | Gnd             |
-//! | VIN   | +3V3            |
-//! | FLT   | Gnd             |
-//! | FMT   | Gnd             |
-//! | DEMP  | Gnd             |
-//! | XSMT  | +3V3            |
-
-//% CHIPS: esp32 esp32c3 esp32c6 esp32h2 esp32s2 esp32s3
-
 #![no_std]
 #![no_main]
 #[allow(unused)]
