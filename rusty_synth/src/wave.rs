@@ -131,4 +131,8 @@ pub mod constants{
         -3211, -3011, -2811, -2610, -2410, -2209, -2009, -1808, 
         -1607, -1406, -1206, -1005, -804, -603, -402, -201, 
     ];
+
+    pub const FULL_WAVE: usize = SINE.len();
+    pub const HALF_WAVE: usize = SINE.len() << 1;
+    pub const QUARTER_WAVE: usize = SINE.len() << 2;
 }

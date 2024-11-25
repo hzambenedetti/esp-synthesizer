@@ -1,12 +1,24 @@
 
+use crate::wave::constants::{
+    SINE,
+    HALF_WAVE,
+    FULL_WAVE,
+};
+
+
+const MAX_VALUE: usize = 32_767;
+const SAW_TOOTH_CONST: f32 = MAX_VALUE as f32/FULL_WAVE as f32;
+const TRIANGLE_CONST: f32 = 2.0 * SAW_TOOTH_CONST;
+
 pub struct Oscilator{
     phase: f32,
     step: f32,
     min_freq: f32,
     max_freq: f32,
     wave_form: WaveForm,
-    wave_table: &'static [i16],
+    wave_table: Option<&'static [i16; 1024]>,
 }
+
 
 pub enum WaveForm{
     Sine,
@@ -15,9 +27,28 @@ pub enum WaveForm{
     Triangle,
 }
 
+#[allow(dead_code)]
 impl Oscilator{
-    pub fn new() -> Self{
-        todo!();
+    pub fn new(
+        init_freq: f32,
+        min_freq: f32, 
+        max_freq: f32, 
+        wave_form: WaveForm
+    ) -> Self{
+        let table = match wave_form{
+            WaveForm::Sine => Some(&SINE),
+            _ => None,
+        };
+
+        Oscilator{
+            phase: 0.0,
+            step: (init_freq * FULL_WAVE as f32)/44100.0,
+            min_freq,
+            max_freq,
+            wave_form,
+            wave_table: table
+
+        }        
     }
 
     pub fn set_wave_form(&mut self, wave_form: WaveForm){
@@ -26,7 +57,7 @@ impl Oscilator{
 
     pub fn inc_phase(&mut self){
         self.phase += self.step;
-        let table_len = self.wave_table.len() as f32;
+        let table_len = FULL_WAVE as f32;
         if self.phase >= table_len{
             self.phase = self.phase - table_len;
         } 
@@ -61,19 +92,24 @@ impl Oscilator{
 }
 
 fn sin_i16(x: usize) -> i16{
-    todo!();
+    SINE[x]
 }
 
 fn square_i16(x: usize) -> i16{
-    todo!();
+    if x < HALF_WAVE {return 32_767;}
+    return 0;
 }
 
 fn saw_tooth_i16(x: usize) -> i16{
-    todo!();
+    (SAW_TOOTH_CONST * (x as f32)) as i16
 }
 
 fn triangle_i16(x: usize) -> i16{
-    todo!();
+    if x < HALF_WAVE{
+        return (TRIANGLE_CONST * x as f32) as i16; 
+    }
+
+    return (MAX_VALUE as f32 - (HALF_WAVE - x) as f32 * TRIANGLE_CONST) as i16;
 }
 
 
