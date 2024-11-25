@@ -13,6 +13,7 @@ const TRIANGLE_CONST: f32 = 2.0 * SAW_TOOTH_CONST;
 pub struct Oscilator{
     phase: f32,
     step: f32,
+    freq: f32,
     min_freq: f32,
     max_freq: f32,
     wave_form: WaveForm,
@@ -43,6 +44,7 @@ impl Oscilator{
         Oscilator{
             phase: 0.0,
             step: (init_freq * FULL_WAVE as f32)/44100.0,
+            freq: init_freq,
             min_freq,
             max_freq,
             wave_form,
@@ -89,6 +91,18 @@ impl Oscilator{
         }
     }
 
+    pub fn set_frequency(&mut self, val: f32) -> bool{
+        if val > self.max_freq || val < self.min_freq {return false};
+        
+        self.freq = val;
+        self.step = (val * FULL_WAVE as f32)/44100.0; 
+        return true
+    }
+
+    pub fn get_frequency(&self) -> f32{
+        self.freq
+    }
+
 }
 
 fn sin_i16(x: usize) -> i16{
@@ -109,7 +123,7 @@ fn triangle_i16(x: usize) -> i16{
         return (TRIANGLE_CONST * x as f32) as i16; 
     }
 
-    return (MAX_VALUE as f32 - (HALF_WAVE - x) as f32 * TRIANGLE_CONST) as i16;
+    return (MAX_VALUE as f32 - (x - HALF_WAVE) as f32 * TRIANGLE_CONST) as i16;
 }
 
 

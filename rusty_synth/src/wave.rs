@@ -133,6 +133,6 @@ pub mod constants{
     ];
 
     pub const FULL_WAVE: usize = SINE.len();
-    pub const HALF_WAVE: usize = SINE.len() << 1;
-    pub const QUARTER_WAVE: usize = SINE.len() << 2;
+    pub const HALF_WAVE: usize = SINE.len() >> 1;
+    pub const QUARTER_WAVE: usize = SINE.len() >> 2;
 }

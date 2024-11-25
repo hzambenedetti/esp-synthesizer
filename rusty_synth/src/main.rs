@@ -104,73 +104,72 @@ fn main() -> ! {
     let data = unsafe { 
         core::slice::from_raw_parts(&SINE as *const _ as *const u8, SINE.len() * 2) 
     };
-    
-    let mut step = 60.0 * STEP_DIV;
-    let mut j = 0.0;
-    for i in (0..tx_buffer.len()).step_by(2){
-        let k = (j as usize) << 1;
-        tx_buffer[i] = data[k];
-        tx_buffer[i+1] = data[k + 1];
-        j += step;
+    let mut signal_buffer = [0i16; TX_BUFFER_SIZE];
+    let mut oscilator = Oscilator::new(
+        60.0,
+        60.0,
+        10_000.0,
+        WaveForm::Triangle
+    );
 
-        if j >= (data.len()/2) as f32{ j = 0.0;}
+    oscilator.gen_signal(
+        &mut signal_buffer,
+        TX_BUFFER_SIZE/2,
+        true
+    );
 
-    }
 
 
-    let mut filler = [0u8; TX_BUFFER_SIZE];
+    copy_bytes(&signal_buffer, tx_buffer, TX_BUFFER_SIZE);
     let mut transfer = i2s_tx.write_dma_circular(&tx_buffer).unwrap();
-    
+    let mut filler = [0u8; TX_BUFFER_SIZE];
 
-    let mut idx = 0.0;
     let transfer_size = transfer.available();
-    for i in (0..transfer_size).step_by(2){
-        let k = (idx as usize) << 1;
-        filler[i] = data[k];
-        filler[i+1] = data[k + 1];
-
-        idx += step;
-        if idx > (data.len()/2) as f32{
-            idx = 0.0;
-        }
-    }
+    oscilator.gen_signal(&mut signal_buffer, 
+        transfer_size/2, 
+        true
+    );
+    copy_bytes(&signal_buffer, &mut filler, transfer_size);
 
     transfer.push(&filler[0..transfer_size]).unwrap();
     
     let mut freq = adc_driver.read_blocking(&mut adc_pin) >> 4;
-    let mut adc_counter: u32 = 0; 
+    let mut adc_counter: u32 = 0;
+    oscilator.set_frequency(freq as f32 * FREQ_DIV);
     loop {
         adc_counter += 1;
         let avail = transfer.available();
         if avail > 0 {
             let avail = usize::min(10000, avail);
-            for bidx in (0..avail).step_by(2) {
-                // let k = (idx as usize) << 1;
-                let bytes = SINE[idx as usize].to_ne_bytes();
-                filler[bidx] = bytes[0];
-                filler[bidx + 1] = bytes[1];
-                idx += step;
-
-                if idx >= (data.len()/2) as f32{
-                    idx = 0.0;
-                }
-            }
+            oscilator.gen_signal(&mut signal_buffer, avail/2, true);
+            copy_bytes(&signal_buffer, &mut filler, avail);
             transfer.push(&filler[0..avail]).unwrap();
         }
         
         if adc_counter > 100_000{
            adc_counter = 0;
             let adc_read = adc_driver.read_blocking(&mut adc_pin) >> 4;
-            let delta = abs(adc_read as i16 - freq as i16); 
+            let delta = abs(adc_read as i16 -  freq as i16); 
+            // esp_println::println!("ADC READ = {adc_read}");
                 if delta > 7{
+                    oscilator.set_frequency(adc_read as f32 * FREQ_DIV);
                     freq = adc_read;
-                    step = (freq as f32) * FREQ_DIV * STEP_DIV;
                 }
         }
         
     }
 }
 
+fn copy_bytes(signal_buffer: &[i16], filler: &mut[u8], size: usize){
+    let signal_buffer = unsafe{
+        core::slice::from_raw_parts(
+            signal_buffer as *const _ as *const u8,
+            signal_buffer.len() * 2
+        )
+    };
+
+    filler[..size].copy_from_slice(&signal_buffer[..size]);
+}
 
 fn abs(x: i16) -> i16{
     if x < 0 {return -x;}
