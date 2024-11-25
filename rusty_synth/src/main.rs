@@ -1,6 +1,10 @@
+
+/*======================================= IMPORTS =======================================*/ 
 #![no_std]
 #![no_main]
 #[allow(unused)]
+
+
 use esp_backtrace as _;
 use esp_hal::{
     analog::adc::{
@@ -10,28 +14,40 @@ use esp_hal::{
         AdcCalBasic,
         AdcCalCurve,
         Attenuation,
-    }
-    , dma::{
+    },
+    dma::{
         Dma, 
         DmaPriority
     },  
-    dma_circular_buffers, 
-    gpio::{
-        Io,
-    }, 
     i2s::{
         DataFormat, 
         I2s, 
         I2sTx, 
         I2sWriteDma, 
         Standard
-    }, peripherals::I2S0, peripherals::ADC1, prelude::*, time, xtensa_lx::timer::delay, Blocking
+    }, 
+    peripherals::{
+        I2S0,
+        ADC1
+    },
+    dma_circular_buffers, 
+    gpio::Io,
+    prelude::*, 
+    Blocking,
 };
 
 use crate::wave::constants::SINE;
+use crate::oscilator::{
+    WaveForm,
+    Oscilator,
+};
+
+/*======================================= MODULES =======================================*/ 
 
 mod wave;
 mod oscilator;
+
+/*======================================= CONSTANTS =======================================*/ 
 
 const TX_BUFFER_SIZE: usize = 4096;
 const STEP: f32 = 1.0;//(60.0 * 1024.0)/44100.0;
@@ -40,12 +56,10 @@ const FREQ_DIV: f32 = 400.0/256.0;
 // Se STEP aumenta, a frequencia aumenta tambem
 // Se o número de amostras no seno aumenta a frequencia diminui
 
+/*======================================= MAIN =======================================*/ 
+
 #[entry]
 fn main() -> ! {
-    
-    // esp_println::logger::init_logger_from_env();
-    // let delay = Delay::new();
-
     let peripherals = esp_hal::init(esp_hal::Config::default());
 
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
@@ -86,9 +100,6 @@ fn main() -> ! {
         .with_ws(io.pins.gpio5)
         .with_dout(io.pins.gpio15)
         .build();
-
-
-
 
     let data = unsafe { 
         core::slice::from_raw_parts(&SINE as *const _ as *const u8, SINE.len() * 2) 
@@ -155,7 +166,6 @@ fn main() -> ! {
                     freq = adc_read;
                     step = (freq as f32) * FREQ_DIV * STEP_DIV;
                 }
-            // esp_println::println!("{freq}");
         }
         
     }
