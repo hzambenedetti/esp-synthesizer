@@ -105,9 +105,6 @@ fn main() -> ! {
         .with_dout(io.pins.gpio15)
         .build();
 
-    let data = unsafe { 
-        core::slice::from_raw_parts(&SINE as *const _ as *const u8, SINE.len() * 2) 
-    };
     let mut signal_buffer = [0i16; TX_BUFFER_SIZE];
     let mut oscilator = Oscilator::new(
         60.0,
@@ -117,27 +114,12 @@ fn main() -> ! {
     );
     let mut envelope_buffer = [0.; TX_BUFFER_SIZE];
 
-    oscilator.gen_signal(
-        &mut signal_buffer,
-        TX_BUFFER_SIZE/2,
-        true
-    );
     let mut envelope = Envelope::new(1.0, -1.0, 0.4, -0.5).unwrap();
 
 
 
-    copy_bytes(&signal_buffer, tx_buffer, TX_BUFFER_SIZE);
     let mut transfer = i2s_tx.write_dma_circular(&tx_buffer).unwrap();
     let mut filler = [0u8; TX_BUFFER_SIZE];
-
-    let transfer_size = transfer.available();
-    oscilator.gen_signal(&mut signal_buffer, 
-        transfer_size/2, 
-        true
-    );
-    copy_bytes(&signal_buffer, &mut filler, transfer_size);
-
-    transfer.push(&filler[0..transfer_size]).unwrap();
     
     let mut freq = adc_driver.read_blocking(&mut adc_pin) >> 4;
     let mut adc_counter: u32 = 0;
