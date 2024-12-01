@@ -60,12 +60,43 @@ def simulate_signal(sample_rate: int, assumed_sr: int,freq: float, table):
     
     return sim_sine
 
+def gen_envelope(sample_rate: int):
+    attack_rate = 4.0/sample_rate
+    decay_rate = -2.0/sample_rate
+    sustain_level = 0.5
+    release_rate = -4.0/sample_rate
+    value = 0.0
+    env = np.zeros(sample_rate)
+    state = 0 # attack
+    step = attack_rate
+    for i in range(sample_rate):
+        env[i] = value
+        value += step
+        if state == 0 and value > 1.0:
+            value = 1.0
+            state = 1 # decay
+            step = decay_rate
+        if state == 1 and value < sustain_level:
+            value = sustain_level
+            state = 2 # sustain
+            step = 0.0
+        if state == 2 and i/sample_rate > 0.75: # detrigger
+            state = 3 # release
+            step = release_rate
+        if state == 3 and value < 0.0:
+            value = 0.0
+            state = 4 # off
+            step = 0.0
+    return env
+
 sine = gen_sine(SAMPLES, AMPLITUDE);
 saw_tooth = gen_saw_tooth(SAMPLES, AMPLITUDE);
 square_wave = gen_square_wave(SAMPLES, AMPLITUDE);
 triangle_wave = gen_triangle_wave(SAMPLES, AMPLITUDE);
+envelope = gen_envelope(SAMPLE_RATE)
 
 signal = simulate_signal(SAMPLE_RATE, ASSUMED_SR, FREQUENCY, triangle_wave);
+signal = [samp*env for samp, env in zip(signal, envelope)]
 
 t = np.linspace(0, 1, SAMPLE_RATE)
 
