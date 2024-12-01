@@ -31,8 +31,8 @@ use esp_hal::{
         ADC1
     },
     dma_circular_buffers, 
-    gpio::Io,
     prelude::*, 
+    gpio::{Input, Io, Pull},
     Blocking,
 };
 
@@ -41,10 +41,12 @@ use crate::oscilator::{
     WaveForm,
     Oscilator,
 };
+use crate::envelope::Envelope;
 
 /*======================================= MODULES =======================================*/ 
 
 mod wave;
+mod envelope;
 mod oscilator;
 
 /*======================================= CONSTANTS =======================================*/ 
@@ -76,6 +78,8 @@ fn main() -> ! {
         peripherals.ADC1,
         adc_config
     );
+    let button = io.pins.gpio10;
+    let button = Input::new(button, Pull::Up);
 
     
     //I2S and DMA setup
@@ -111,12 +115,14 @@ fn main() -> ! {
         10_000.0,
         WaveForm::Triangle
     );
+    let mut envelope_buffer = [0.; TX_BUFFER_SIZE];
 
     oscilator.gen_signal(
         &mut signal_buffer,
         TX_BUFFER_SIZE/2,
         true
     );
+    let mut envelope = Envelope::new(1.0, -1.0, 0.4, -0.5).unwrap();
 
 
 
@@ -136,12 +142,25 @@ fn main() -> ! {
     let mut freq = adc_driver.read_blocking(&mut adc_pin) >> 4;
     let mut adc_counter: u32 = 0;
     oscilator.set_frequency(freq as f32 * FREQ_DIV);
+    let mut gate = false;
     loop {
         adc_counter += 1;
+        if button.is_low() && !gate {
+            envelope.trigger();
+            gate = true;
+        }
+        if button.is_high() && gate {
+            envelope.detrigger();
+            gate = false;
+        }
         let avail = transfer.available();
         if avail > 0 {
             let avail = usize::min(10000, avail);
             oscilator.gen_signal(&mut signal_buffer, avail/2, true);
+            envelope.gen_signal(&mut envelope_buffer, avail / 2);
+            for (sample, env_value) in signal_buffer.iter_mut().zip(envelope_buffer.iter()) {
+                *sample = ((*sample as f32) * env_value) as i16;
+            }
             copy_bytes(&signal_buffer, &mut filler, avail);
             transfer.push(&filler[0..avail]).unwrap();
         }
