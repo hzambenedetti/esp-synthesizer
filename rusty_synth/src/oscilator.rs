@@ -79,13 +79,15 @@ impl Oscilator{
         };
         
         if write_over == true{
-            for i in 0..samples{
+            for i in (0..samples).step_by(2){
                 buffer[i] = wave_func(self.phase as usize);
+                buffer[i + 1] = buffer[i];
                 self.inc_phase();
             }
         }else{
-            for i in 0..samples{
+            for i in (0..samples).step_by(2){
                 buffer[i] += wave_func(self.phase as usize);
+                buffer[i+1] += buffer[i];
                 self.inc_phase();
             }
         }
