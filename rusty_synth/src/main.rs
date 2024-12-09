@@ -1,60 +1,39 @@
-
-/*======================================= IMPORTS =======================================*/ 
+/*======================================= IMPORTS =======================================*/
 #![no_std]
 #![no_main]
-#[allow(unused)]
-
 
 use analog_reader::AnalogReader;
+#[allow(unused)]
 use esp_backtrace as _;
 use esp_hal::{
-    dma::{
-        Dma, 
-        DmaPriority
-    },  
-    i2s::{
-        DataFormat, 
-        I2s, 
-        I2sTx, 
-        I2sWriteDma, 
-        Standard
-    }, 
-    peripherals::{
-        I2S0,
-        ADC1
-    },
-    dma_circular_buffers, 
-    prelude::*, 
     analog::adc::{Adc, AdcConfig},
+    dma::{Dma, DmaPriority},
+    dma_circular_buffers,
     gpio::{Input, Io, Pull},
+    i2s::{DataFormat, I2s, I2sTx, I2sWriteDma, Standard},
+    peripherals::{ADC1, I2S0},
+    prelude::*,
     Blocking,
 };
 
-use crate::wave::constants::SINE;
-use crate::oscilator::{
-    WaveForm,
-    Oscilator,
-};
 use crate::envelope::Envelope;
+use crate::oscilator::{Oscilator, WaveForm};
 
-/*======================================= MODULES =======================================*/ 
+/*======================================= MODULES =======================================*/
 
-mod wave;
 mod analog_reader;
 mod envelope;
 mod oscilator;
+mod wave;
 
-/*======================================= CONSTANTS =======================================*/ 
+/*======================================= CONSTANTS =======================================*/
 
 const SAMPLING_RATE: u32 = 48000;
 const TX_BUFFER_SIZE: usize = 4096;
-const STEP: f32 = 1.0;//(60.0 * 1024.0)/44100.0;
-const STEP_DIV: f32 = SINE.len() as f32/44100.0;
-const FREQ_DIV: f32 = 400.0/256.0;
 // Se STEP aumenta, a frequencia aumenta tambem
 // Se o número de amostras no seno aumenta a frequencia diminui
 
-/*======================================= MAIN =======================================*/ 
+/*======================================= MAIN =======================================*/
 
 #[entry]
 fn main() -> ! {
@@ -88,7 +67,7 @@ fn main() -> ! {
         tx_descriptors,
     );
 
-    let mut i2s_tx: I2sTx<I2S0,Blocking> = i2s
+    let mut i2s_tx: I2sTx<I2S0, Blocking> = i2s
         .i2s_tx
         .with_bclk(io.pins.gpio4)
         .with_ws(io.pins.gpio5)
@@ -148,18 +127,13 @@ fn main() -> ! {
     }
 }
 
-fn copy_bytes(signal_buffer: &[i16], filler: &mut[u8], size: usize){
-    let signal_buffer = unsafe{
+fn copy_bytes(signal_buffer: &[i16], filler: &mut [u8], size: usize) {
+    let signal_buffer = unsafe {
         core::slice::from_raw_parts(
             signal_buffer as *const _ as *const u8,
-            signal_buffer.len() * 2
+            signal_buffer.len() * 2,
         )
     };
 
     filler[..size].copy_from_slice(&signal_buffer[..size]);
-}
-
-fn abs(x: i16) -> i16{
-    if x < 0 {return -x;}
-    return x;
 }
