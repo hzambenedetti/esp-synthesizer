@@ -16,8 +16,8 @@ where
     F: Fn(u16) -> f32,
 {
     pub fn new(pin: PIN, activation: F, adc_config: &mut AdcConfig<ADC1>) -> AnalogReader<PIN, F> {
-        let adc_pin = adc_config
-            .enable_pin_with_cal::<PIN, AdcCalLine<ADC1>>(pin, Attenuation::Attenuation11dB);
+        let adc_pin =
+            adc_config.enable_pin_with_cal::<PIN, AdcCalLine<_>>(pin, Attenuation::Attenuation11dB);
         AnalogReader {
             adc_pin,
             activation,
@@ -30,7 +30,6 @@ where
         let alpha = 2.0 / 65.0;
         self.accumulator =
             ((alpha * value as f32) + (1.0 - alpha) * self.accumulator as f32) as u16;
-        esp_println::dbg!(self.accumulator);
         (self.activation)(self.accumulator)
     }
 }

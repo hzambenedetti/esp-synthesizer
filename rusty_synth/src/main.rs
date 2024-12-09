@@ -41,7 +41,12 @@ fn main() -> ! {
 
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
     let mut adc1_config: AdcConfig<ADC1> = AdcConfig::new();
-    let mut pitch_reader = AnalogReader::new(
+    let mut pitch1_reader = AnalogReader::new(
+        io.pins.gpio8,
+        |x| x as f32 * (1.5 / 3000.0) + 0.5,
+        &mut adc1_config,
+    );
+    let mut pitch2_reader = AnalogReader::new(
         io.pins.gpio3,
         |x| x as f32 * (1.5 / 3000.0) + 0.5,
         &mut adc1_config,
@@ -81,17 +86,18 @@ fn main() -> ! {
     let mut oscilator1 = Oscilator::new(60.0, 60.0, 10_000.0, WaveForm::Sine);
     let mut oscilator2 = Oscilator::new(60.0, 60.0, 10_000.0, WaveForm::Square);
     let mut envelope = Envelope::new(1.0, -1.0, 0.4, -0.5).unwrap();
-    let osc1_mix = 0.1;
-    let osc2_mix = 0.9;
+    let osc1_mix = 0.5;
+    let osc2_mix = 0.5;
 
     let mut transfer = i2s_tx.write_dma_circular(&tx_buffer).unwrap();
     let mut filler = [0u8; TX_BUFFER_SIZE];
     let base_freq = 130.8;
 
-    let mut freq_offset = pitch_reader.read(&mut adc1_driver);
+    let mut freq1_offset = pitch1_reader.read(&mut adc1_driver);
+    let mut freq2_offset = pitch2_reader.read(&mut adc1_driver);
     let mut adc_counter: u32 = 0;
-    oscilator1.set_frequency(base_freq * freq_offset);
-    oscilator2.set_frequency(base_freq * freq_offset);
+    oscilator1.set_frequency(base_freq * freq1_offset);
+    oscilator2.set_frequency(base_freq * freq2_offset);
     let mut gate = false;
     loop {
         adc_counter += 1;
@@ -105,7 +111,7 @@ fn main() -> ! {
         }
         let avail = transfer.available();
         if avail > 0 {
-            let avail = usize::min(10000, avail);
+            let avail = usize::min(TX_BUFFER_SIZE, avail);
             oscilator1.gen_signal(&mut osc1_buffer, avail / 2, true);
             oscilator2.gen_signal(&mut osc2_buffer, avail / 2, true);
             envelope.gen_signal(&mut env_buffer, avail / 2);
@@ -120,9 +126,10 @@ fn main() -> ! {
 
         if adc_counter > 100 {
             adc_counter = 0;
-            freq_offset = pitch_reader.read(&mut adc1_driver);
-            oscilator1.set_frequency(base_freq * freq_offset);
-            oscilator2.set_frequency(base_freq * freq_offset);
+            freq1_offset = pitch1_reader.read(&mut adc1_driver);
+            freq2_offset = pitch2_reader.read(&mut adc1_driver);
+            oscilator1.set_frequency(base_freq * freq1_offset);
+            oscilator2.set_frequency(base_freq * freq2_offset);
         }
     }
 }
