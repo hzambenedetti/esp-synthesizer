@@ -3,6 +3,7 @@ use crate::wave::constants::{
     SINE,
     HALF_WAVE,
     FULL_WAVE,
+    SAMPLING_RATE,
 };
 
 
@@ -43,7 +44,7 @@ impl Oscilator{
 
         Oscilator{
             phase: 0.0,
-            step: (init_freq * FULL_WAVE as f32)/44100.0,
+            step: (init_freq * FULL_WAVE as f32) / SAMPLING_RATE as f32,
             freq: init_freq,
             min_freq,
             max_freq,

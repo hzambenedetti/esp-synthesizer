@@ -5,16 +5,9 @@
 #[allow(unused)]
 
 
+use analog_reader::AnalogReader;
 use esp_backtrace as _;
 use esp_hal::{
-    analog::adc::{
-        Adc,
-        AdcConfig,
-        AdcCalLine,
-        AdcCalBasic,
-        AdcCalCurve,
-        Attenuation,
-    },
     dma::{
         Dma, 
         DmaPriority
@@ -32,6 +25,7 @@ use esp_hal::{
     },
     dma_circular_buffers, 
     prelude::*, 
+    analog::adc::{Adc, AdcConfig},
     gpio::{Input, Io, Pull},
     Blocking,
 };
@@ -46,11 +40,13 @@ use crate::envelope::Envelope;
 /*======================================= MODULES =======================================*/ 
 
 mod wave;
+mod analog_reader;
 mod envelope;
 mod oscilator;
 
 /*======================================= CONSTANTS =======================================*/ 
 
+const SAMPLING_RATE: u32 = 48000;
 const TX_BUFFER_SIZE: usize = 4096;
 const STEP: f32 = 1.0;//(60.0 * 1024.0)/44100.0;
 const STEP_DIV: f32 = SINE.len() as f32/44100.0;
@@ -65,23 +61,17 @@ fn main() -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
 
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    
-    //ADC setup
-    let mut adc_config: AdcConfig<ADC1> = AdcConfig::new();
-    let mut adc_pin = adc_config.enable_pin_with_cal::<_, AdcCalLine<_>>( 
+    let mut adc1_config: AdcConfig<ADC1> = AdcConfig::new();
+    let mut pitch_reader = AnalogReader::new(
         io.pins.gpio3,
-        Attenuation::Attenuation11dB
+        |x| x as f32 * (1.5 / 3000.0) + 0.5,
+        &mut adc1_config,
     );
+    let mut adc1_driver = Adc::new(peripherals.ADC1, adc1_config);
 
-
-    let mut adc_driver = Adc::new(
-        peripherals.ADC1,
-        adc_config
-    );
     let button = io.pins.gpio10;
     let button = Input::new(button, Pull::Up);
 
-    
     //I2S and DMA setup
     let dma = Dma::new(peripherals.DMA);
     let dma_channel = dma.channel0;
@@ -92,7 +82,7 @@ fn main() -> ! {
         peripherals.I2S0,
         Standard::Philips,
         DataFormat::Data16Channel16,
-        48000.Hz(),
+        SAMPLING_RATE.Hz(),
         dma_channel.configure(false, DmaPriority::Priority0),
         rx_descriptors,
         tx_descriptors,
@@ -106,24 +96,23 @@ fn main() -> ! {
         .build();
 
     let mut signal_buffer = [0i16; TX_BUFFER_SIZE];
-    let mut oscilator = Oscilator::new(
-        60.0,
-        60.0,
-        10_000.0,
-        WaveForm::Triangle
-    );
-    let mut envelope_buffer = [0.; TX_BUFFER_SIZE];
-
+    let mut env_buffer = [0.; TX_BUFFER_SIZE];
+    let mut osc1_buffer = [0i16; TX_BUFFER_SIZE];
+    let mut osc2_buffer = [0i16; TX_BUFFER_SIZE];
+    let mut oscilator1 = Oscilator::new(60.0, 60.0, 10_000.0, WaveForm::Sine);
+    let mut oscilator2 = Oscilator::new(60.0, 60.0, 10_000.0, WaveForm::Square);
     let mut envelope = Envelope::new(1.0, -1.0, 0.4, -0.5).unwrap();
-
-
+    let osc1_mix = 0.1;
+    let osc2_mix = 0.9;
 
     let mut transfer = i2s_tx.write_dma_circular(&tx_buffer).unwrap();
     let mut filler = [0u8; TX_BUFFER_SIZE];
-    
-    let mut freq = adc_driver.read_blocking(&mut adc_pin) >> 4;
+    let base_freq = 130.8;
+
+    let mut freq_offset = pitch_reader.read(&mut adc1_driver);
     let mut adc_counter: u32 = 0;
-    oscilator.set_frequency(freq as f32 * FREQ_DIV);
+    oscilator1.set_frequency(base_freq * freq_offset);
+    oscilator2.set_frequency(base_freq * freq_offset);
     let mut gate = false;
     loop {
         adc_counter += 1;
@@ -138,26 +127,24 @@ fn main() -> ! {
         let avail = transfer.available();
         if avail > 0 {
             let avail = usize::min(10000, avail);
-            oscilator.gen_signal(&mut signal_buffer, avail/2, true);
-            envelope.gen_signal(&mut envelope_buffer, avail / 2);
-            for (sample, env_value) in signal_buffer.iter_mut().zip(envelope_buffer.iter()) {
-                *sample = ((*sample as f32) * env_value) as i16;
+            oscilator1.gen_signal(&mut osc1_buffer, avail / 2, true);
+            oscilator2.gen_signal(&mut osc2_buffer, avail / 2, true);
+            envelope.gen_signal(&mut env_buffer, avail / 2);
+            for i in 0..TX_BUFFER_SIZE {
+                signal_buffer[i] = ((osc1_buffer[i] as f32 * osc1_mix
+                    + osc2_buffer[i] as f32 * osc2_mix)
+                    * env_buffer[i]) as i16;
             }
             copy_bytes(&signal_buffer, &mut filler, avail);
             transfer.push(&filler[0..avail]).unwrap();
         }
-        
-        if adc_counter > 100_000{
-           adc_counter = 0;
-            let adc_read = adc_driver.read_blocking(&mut adc_pin) >> 4;
-            let delta = abs(adc_read as i16 -  freq as i16); 
-            // esp_println::println!("ADC READ = {adc_read}");
-                if delta > 7{
-                    oscilator.set_frequency(adc_read as f32 * FREQ_DIV);
-                    freq = adc_read;
-                }
+
+        if adc_counter > 100 {
+            adc_counter = 0;
+            freq_offset = pitch_reader.read(&mut adc1_driver);
+            oscilator1.set_frequency(base_freq * freq_offset);
+            oscilator2.set_frequency(base_freq * freq_offset);
         }
-        
     }
 }
 
