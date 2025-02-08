@@ -27,7 +27,7 @@ where
     pub fn read(&mut self, driver: &mut Adc<ADC1>) -> f32 {
         let value = driver.read_blocking(&mut self.adc_pin);
         //exponential moving average (smoothing / (window_size + 1))
-        let alpha = 2.0 / 65.0;
+        let alpha = 2.0 / 257.0;
         self.accumulator =
             ((alpha * value as f32) + (1.0 - alpha) * self.accumulator as f32) as u16;
         (self.activation)(self.accumulator)
