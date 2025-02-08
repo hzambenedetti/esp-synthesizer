@@ -46,6 +46,14 @@ impl Oscilator {
     pub fn set_wave_form(&mut self, wave_form: WaveForm) {
         self.wave_form = wave_form;
     }
+    pub fn next_waveform(&mut self) {
+        self.wave_form = match self.wave_form {
+            WaveForm::Sine => WaveForm::Square,
+            WaveForm::Square => WaveForm::SawTooth,
+            WaveForm::SawTooth => WaveForm::Triangle,
+            WaveForm::Triangle => WaveForm::Sine,
+        };
+    }
 
     pub fn inc_phase(&mut self) {
         self.phase += self.step;
@@ -93,22 +101,22 @@ impl Oscilator {
     }
 }
 
-fn sin_i16(x: usize) -> i16 {
+pub fn sin_i16(x: usize) -> i16 {
     SINE[x]
 }
 
-fn square_i16(x: usize) -> i16 {
+pub fn square_i16(x: usize) -> i16 {
     if x < HALF_WAVE {
         return 32_767;
     }
     return 0;
 }
 
-fn saw_tooth_i16(x: usize) -> i16 {
+pub fn saw_tooth_i16(x: usize) -> i16 {
     (SAW_TOOTH_CONST * (x as f32)) as i16
 }
 
-fn triangle_i16(x: usize) -> i16 {
+pub fn triangle_i16(x: usize) -> i16 {
     if x < HALF_WAVE {
         return (TRIANGLE_CONST * x as f32) as i16;
     }
