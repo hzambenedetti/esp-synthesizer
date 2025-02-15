@@ -2,7 +2,8 @@ use core::f32::consts::TAU;
 
 use crate::{
     oscilator::{saw_tooth_i16, sin_i16, square_i16, triangle_i16, WaveForm},
-    wave::constants::{FULL_WAVE, SINE}, SAMPLING_RATE,
+    wave::constants::{FULL_WAVE, SINE},
+    SAMPLING_RATE,
 };
 
 const MAX_VALUE: usize = 32_767;
@@ -15,7 +16,7 @@ pub struct Lfo {
     freq: f32,
     min_freq: f32,
     max_freq: f32,
-    wave_form: WaveForm,
+    pub wave_form: WaveForm,
     wave_table: Option<&'static [i16; 1024]>,
 }
 
@@ -81,10 +82,10 @@ impl Lfo {
 
     pub fn next_waveform(&mut self) {
         self.wave_form = match self.wave_form {
-            WaveForm::Sine => WaveForm::Square,
+            WaveForm::Sine => WaveForm::Triangle,
+            WaveForm::Triangle => WaveForm::Square,
             WaveForm::Square => WaveForm::SawTooth,
-            WaveForm::SawTooth => WaveForm::Triangle,
-            WaveForm::Triangle => WaveForm::Sine,
+            WaveForm::SawTooth => WaveForm::Sine,
         };
     }
 

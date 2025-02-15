@@ -13,10 +13,11 @@ pub struct Oscilator {
     freq: f32,
     min_freq: f32,
     max_freq: f32,
-    wave_form: WaveForm,
+    pub wave_form: WaveForm,
     wave_table: Option<&'static [i16; 1024]>,
 }
 
+#[derive(Copy, Clone)]
 pub enum WaveForm {
     Sine,
     Square,
@@ -48,10 +49,10 @@ impl Oscilator {
     }
     pub fn next_waveform(&mut self) {
         self.wave_form = match self.wave_form {
-            WaveForm::Sine => WaveForm::Square,
+            WaveForm::Sine => WaveForm::Triangle,
+            WaveForm::Triangle => WaveForm::Square,
             WaveForm::Square => WaveForm::SawTooth,
-            WaveForm::SawTooth => WaveForm::Triangle,
-            WaveForm::Triangle => WaveForm::Sine,
+            WaveForm::SawTooth => WaveForm::Sine,
         };
     }
 
