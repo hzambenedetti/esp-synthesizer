@@ -1,15 +1,17 @@
+use crate::SAMPLING_RATE;
+
 pub struct Envelope {
     value: f32,
     state: EnvelopeState,
     step: f32,
-    params: EnvelopeParameters,
+    pub params: EnvelopeParameters,
 }
 
-struct EnvelopeParameters {
-    attack_rate: f32,
-    decay_rate: f32,
-    sustain_value: f32,
-    release_rate: f32,
+pub struct EnvelopeParameters {
+    pub attack_rate: f32,
+    pub decay_rate: f32,
+    pub sustain_value: f32,
+    pub release_rate: f32,
 }
 
 impl Envelope {
@@ -36,10 +38,10 @@ impl Envelope {
             state: EnvelopeState::Off,
             step: 0.0,
             params: EnvelopeParameters {
-                attack_rate: attack_rate / 44100.0,
-                decay_rate: decay_rate / 44100.0,
+                attack_rate,
+                decay_rate,
                 sustain_value,
-                release_rate: release_rate / 44100.0,
+                release_rate,
             },
         })
     }
@@ -57,7 +59,7 @@ impl Envelope {
     pub fn gen_signal(&mut self, buffer: &mut [f32], samples: usize) {
         for i in 0..samples {
             buffer[i] = self.value;
-            self.value += self.step;
+            self.value += self.step / (SAMPLING_RATE as f32);
             match self.state {
                 EnvelopeState::Off => (),
                 EnvelopeState::Attack => {
@@ -74,7 +76,9 @@ impl Envelope {
                         self.step = 0.0;
                     }
                 }
-                EnvelopeState::Sustain => (),
+                EnvelopeState::Sustain => {
+                    self.value = self.params.sustain_value;
+                }
                 EnvelopeState::Release => {
                     if self.value < 0.0 {
                         self.value = 0.0;
